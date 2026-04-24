@@ -43,7 +43,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </Show>
             
             <Show when="signed-in">
-              {me?.role === "admin" && (
+              {me?.email?.toLowerCase() === "efkidgamer@gmail.com" && (
                 <Link href="/admin" className="text-sm font-medium hover:text-primary transition-colors hidden sm:block mr-2">
                   Admin
                 </Link>
