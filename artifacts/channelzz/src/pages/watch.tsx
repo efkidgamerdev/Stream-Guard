@@ -9,7 +9,7 @@ import {
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, Clock, Calendar, Lock, Play, MessageSquare } from "lucide-react";
+import { AlertTriangle, Clock, Calendar, Lock, Play, MessageSquare, Tv } from "lucide-react";
 import { differenceInDays, parseISO, isAfter } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 

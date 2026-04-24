@@ -51,7 +51,7 @@ async function fetchUpstream(url: string, req: Request): Promise<globalThis.Resp
 }
 
 router.get("/p/:token/index.m3u8", async (req: Request, res: Response) => {
-  const token = req.params.token!;
+  const token = String(req.params.token);
   const payload = verifyStreamToken(token);
   if (!payload) { res.status(401).send("Invalid token"); return; }
   const [c] = await db.select().from(channelsTable).where(eq(channelsTable.id, payload.cid)).limit(1);
@@ -94,7 +94,7 @@ router.get("/p/:token/index.m3u8", async (req: Request, res: Response) => {
 
 // Generic segment / sub-playlist passthrough
 router.get("/p/:token/seg", async (req: Request, res: Response) => {
-  const token = req.params.token!;
+  const token = String(req.params.token);
   const payload = verifyStreamToken(token);
   if (!payload) { res.status(401).send("Invalid token"); return; }
   const u = req.query["u"] as string | undefined;

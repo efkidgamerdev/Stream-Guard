@@ -71,7 +71,7 @@ router.get("/channels", async (_req, res) => {
 });
 
 router.get("/channels/:id", async (req, res) => {
-  const id = req.params.id!;
+  const id = String(req.params.id);
   const [r] = await db
     .select({
       id: channelsTable.id,
@@ -120,7 +120,7 @@ router.get("/me", async (req: AuthedRequest, res: Response) => {
 });
 
 router.post("/channels/:id/play", requireAuth, async (req: AuthedRequest, res: Response) => {
-  const id = req.params.id!;
+  const id = String(req.params.id);
   const row = req.userRow!;
   if (!userHasAccess(row)) { res.status(403).json({ error: "No active subscription" }); return; }
   const [c] = await db.select().from(channelsTable).where(eq(channelsTable.id, id)).limit(1);
@@ -141,7 +141,7 @@ router.post("/categories", requireAuth, requireAdmin, async (req, res) => {
 });
 
 router.delete("/categories/:id", requireAuth, requireAdmin, async (req, res) => {
-  await db.delete(categoriesTable).where(eq(categoriesTable.id, req.params.id!));
+  await db.delete(categoriesTable).where(eq(categoriesTable.id, String(req.params.id)));
   res.json({ ok: true });
 });
 
@@ -165,14 +165,14 @@ router.patch("/channels/:id", requireAuth, requireAdmin, async (req, res) => {
   if (b.logoUrl !== undefined) update.logoUrl = b.logoUrl;
   if (b.sourceUrl !== undefined && b.sourceUrl !== "") update.sourceUrl = b.sourceUrl;
   if (b.isLive !== undefined) update.isLive = b.isLive;
-  const [c] = await db.update(channelsTable).set(update).where(eq(channelsTable.id, req.params.id!)).returning();
+  const [c] = await db.update(channelsTable).set(update).where(eq(channelsTable.id, String(req.params.id))).returning();
   if (!c) { res.status(404).json({ error: "Not found" }); return; }
   const [cat] = await db.select().from(categoriesTable).where(eq(categoriesTable.id, c.categoryId)).limit(1);
   res.json(serializeChannel(c, cat?.name ?? ""));
 });
 
 router.delete("/channels/:id", requireAuth, requireAdmin, async (req, res) => {
-  await db.delete(channelsTable).where(eq(channelsTable.id, req.params.id!));
+  await db.delete(channelsTable).where(eq(channelsTable.id, String(req.params.id)));
   res.json({ ok: true });
 });
 
@@ -185,7 +185,7 @@ router.post("/announcements", requireAuth, requireAdmin, async (req, res) => {
 });
 
 router.delete("/announcements/:id", requireAuth, requireAdmin, async (req, res) => {
-  await db.delete(announcementsTable).where(eq(announcementsTable.id, req.params.id!));
+  await db.delete(announcementsTable).where(eq(announcementsTable.id, String(req.params.id)));
   res.json({ ok: true });
 });
 
@@ -221,7 +221,7 @@ router.get("/admin/users", requireAuth, requireAdmin, async (_req, res) => {
 });
 
 router.patch("/admin/users/:id", requireAuth, requireAdmin, async (req, res) => {
-  const id = req.params.id!;
+  const id = String(req.params.id);
   const b = req.body as { addDays?: number; setSubscriptionEndsAt?: string | null; banned?: boolean };
   const [existing] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
   if (!existing) { res.status(404).json({ error: "Not found" }); return; }
