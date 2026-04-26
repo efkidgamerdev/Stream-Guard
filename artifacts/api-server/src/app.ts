@@ -43,7 +43,7 @@ app.use("/api", router);
 app.use(express.static(frontendDist));
 
 // Catch-all: send index.html for React Router to handle
-app.get("*", (_req, res) => {
+app.get("{*splat}", (_req, res) => {
   res.sendFile(path.join(frontendDist, "index.html"));
 });
 
