@@ -8,7 +8,7 @@ export const usersTable = sqliteTable("users", {
   passwordHash: text("password_hash").notNull(),
   name: text("name"),
   avatarUrl: text("avatar_url"),
-  role: text("role").notNull().default("user"), // 'admin' | 'user'
+  role: text("role").notNull().default("user"),
   banned: integer("banned", { mode: "boolean" }).notNull().default(false),
   trialEndsAt: integer("trial_ends_at", { mode: "timestamp_ms" }),
   subscriptionEndsAt: integer("subscription_ends_at", { mode: "timestamp_ms" }),
@@ -31,7 +31,7 @@ export const channelsTable = sqliteTable("channels", {
   description: text("description"),
   categoryId: text("category_id").notNull().references(() => categoriesTable.id, { onDelete: "cascade" }),
   logoUrl: text("logo_url").notNull(),
-  sourceUrl: text("source_url").notNull(), // m3u8 origin — never returned to clients
+  sourceUrl: text("source_url").notNull(),
   isLive: integer("is_live", { mode: "boolean" }).notNull().default(true),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
 });
@@ -50,11 +50,13 @@ export const channelRequestsTable = sqliteTable("channel_requests", {
   channelName: text("channel_name").notNull(),
   channelUrl: text("channel_url"),
   notes: text("notes"),
-  status: text("status").notNull().default("pending"), // pending | approved | rejected
+  status: text("status").notNull().default("pending"),
   adminNote: text("admin_note"),
   seenByUser: integer("seen_by_user", { mode: "boolean" }).notNull().default(false),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
 });
+
+export const settingsTable = sqliteTable("settings", {
   id: integer("id").primaryKey().default(1),
   pricingText: text("pricing_text").notNull(),
   whatsappNumber: text("whatsapp_number").notNull(),
