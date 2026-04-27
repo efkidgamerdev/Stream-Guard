@@ -1,15 +1,20 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { 
   useGetMe, 
   useListChannels, 
   useListCategories, 
   useListAnnouncements,
-  useGetSettings
+  useGetSettings,
+  useSubmitChannelRequest,
+  useUnseenChannelRequests,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, Clock, Calendar, Lock, Play, MessageSquare, Tv } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { AlertTriangle, Clock, Calendar, Lock, Play, MessageSquare, Tv, PlusCircle, CheckCircle2, XCircle, Bell } from "lucide-react";
 import { differenceInDays, parseISO, isAfter } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -20,8 +25,32 @@ export default function Watch() {
   const { data: categories, isLoading: isLoadingCategories } = useListCategories();
   const { data: announcements } = useListAnnouncements();
   const { data: settings } = useGetSettings();
+  const { data: unseenRequests } = useUnseenChannelRequests();
+  const submitRequest = useSubmitChannelRequest();
 
   const [activeCategory, setActiveCategory] = useState<string>("all");
+  const [requestOpen, setRequestOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [reqName, setReqName] = useState("");
+  const [reqUrl, setReqUrl] = useState("");
+  const [reqNotes, setReqNotes] = useState("");
+  const [reqSuccess, setReqSuccess] = useState(false);
+
+  // Show notification popup when there are unseen actioned requests
+  useEffect(() => {
+    if (unseenRequests && unseenRequests.length > 0) {
+      setNotifOpen(true);
+    }
+  }, [unseenRequests]);
+
+  const handleSubmitRequest = async () => {
+    if (!reqName.trim()) return;
+    try {
+      await submitRequest.mutateAsync({ channelName: reqName, channelUrl: reqUrl, notes: reqNotes });
+      setReqSuccess(true);
+      setReqName(""); setReqUrl(""); setReqNotes("");
+    } catch {}
+  };
 
   const isBanned = me?.banned;
   const accessStatus = me?.access;
@@ -75,6 +104,91 @@ export default function Watch() {
 
   return (
     <div className="container py-8 space-y-8">
+
+      {/* ── Notification Popup for actioned requests ── */}
+      <AnimatePresence>
+        {notifOpen && unseenRequests && unseenRequests.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-4 right-4 z-50 max-w-sm w-full"
+          >
+            <div className="bg-card border border-border rounded-2xl shadow-2xl p-5 space-y-3">
+              <div className="flex items-center gap-2">
+                <Bell className="h-5 w-5 text-primary" />
+                <h4 className="font-bold text-foreground">Channel Request Update</h4>
+                <button onClick={() => setNotifOpen(false)} className="ml-auto text-muted-foreground hover:text-foreground text-lg leading-none">×</button>
+              </div>
+              {unseenRequests.map((r) => (
+                <div key={r.id} className={`flex items-start gap-3 p-3 rounded-xl border ${r.status === "approved" ? "bg-green-500/10 border-green-500/20" : "bg-destructive/10 border-destructive/20"}`}>
+                  {r.status === "approved"
+                    ? <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
+                    : <XCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />}
+                  <div>
+                    <p className="text-sm font-semibold">"{r.channelName}" — {r.status === "approved" ? "Approved! 🎉" : "Not added"}</p>
+                    {r.adminNote && <p className="text-xs text-muted-foreground mt-0.5">{r.adminNote}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Channel Request Dialog ── */}
+      <Dialog open={requestOpen} onOpenChange={(o) => { setRequestOpen(o); if (!o) setReqSuccess(false); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Request a Channel</DialogTitle>
+            <DialogDescription>
+              Tell us what channel you'd like added and we'll look into it.
+            </DialogDescription>
+          </DialogHeader>
+          {reqSuccess ? (
+            <div className="py-8 flex flex-col items-center gap-3 text-center">
+              <CheckCircle2 className="h-12 w-12 text-green-500" />
+              <p className="font-semibold text-lg">Request Sent!</p>
+              <p className="text-muted-foreground text-sm">We'll notify you here when it's reviewed.</p>
+              <Button onClick={() => { setRequestOpen(false); setReqSuccess(false); }}>Done</Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Channel Name *</label>
+                <Input
+                  placeholder="e.g. CNN International"
+                  value={reqName}
+                  onChange={(e) => setReqName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Stream URL (optional)</label>
+                <Input
+                  placeholder="https://example.com/stream/index.m3u8"
+                  value={reqUrl}
+                  onChange={(e) => setReqUrl(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Notes (optional)</label>
+                <Textarea
+                  placeholder="Any extra details about the channel..."
+                  value={reqNotes}
+                  onChange={(e) => setReqNotes(e.target.value)}
+                  className="min-h-[80px]"
+                />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button variant="outline" className="flex-1" onClick={() => setRequestOpen(false)}>Cancel</Button>
+                <Button className="flex-1" onClick={handleSubmitRequest} disabled={!reqName.trim() || submitRequest.isPending}>
+                  {submitRequest.isPending ? "Sending…" : "Send Request"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
       {/* Announcements */}
       {announcements && announcements.length > 0 && (
         <div className="space-y-2">
@@ -137,27 +251,35 @@ export default function Watch() {
         </div>
       )}
 
-      {/* Categories */}
-      <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">
-        <Button 
-          variant={activeCategory === "all" ? "default" : "secondary"}
-          className="rounded-full shrink-0"
-          onClick={() => setActiveCategory("all")}
-          disabled={isBlocked}
-        >
-          All Channels
-        </Button>
-        {categories?.map((cat) => (
+      {/* Categories + Request button */}
+      <div className="flex items-center gap-3">
+        <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar flex-1">
           <Button 
-            key={cat.id}
-            variant={activeCategory === cat.id ? "default" : "secondary"}
+            variant={activeCategory === "all" ? "default" : "secondary"}
             className="rounded-full shrink-0"
-            onClick={() => setActiveCategory(cat.id)}
+            onClick={() => setActiveCategory("all")}
             disabled={isBlocked}
           >
-            {cat.name}
+            All Channels
           </Button>
-        ))}
+          {categories?.map((cat) => (
+            <Button 
+              key={cat.id}
+              variant={activeCategory === cat.id ? "default" : "secondary"}
+              className="rounded-full shrink-0"
+              onClick={() => setActiveCategory(cat.id)}
+              disabled={isBlocked}
+            >
+              {cat.name}
+            </Button>
+          ))}
+        </div>
+        {!isBlocked && me && (
+          <Button variant="outline" className="shrink-0 gap-2" onClick={() => setRequestOpen(true)}>
+            <PlusCircle className="h-4 w-4" />
+            <span className="hidden sm:inline">Request Channel</span>
+          </Button>
+        )}
       </div>
 
       {/* Channels Grid */}
