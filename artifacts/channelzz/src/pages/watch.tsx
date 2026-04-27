@@ -1,3 +1,6 @@
+Here's the full `watch.tsx`:
+
+```tsx
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { 
@@ -32,11 +35,9 @@ export default function Watch() {
   const [requestOpen, setRequestOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [reqName, setReqName] = useState("");
-  const [reqUrl, setReqUrl] = useState("");
   const [reqNotes, setReqNotes] = useState("");
   const [reqSuccess, setReqSuccess] = useState(false);
 
-  // Show notification popup when there are unseen actioned requests
   useEffect(() => {
     if (unseenRequests && unseenRequests.length > 0) {
       setNotifOpen(true);
@@ -46,21 +47,19 @@ export default function Watch() {
   const handleSubmitRequest = async () => {
     if (!reqName.trim()) return;
     try {
-      await submitRequest.mutateAsync({ channelName: reqName, channelUrl: reqUrl, notes: reqNotes });
+      await submitRequest.mutateAsync({ channelName: reqName, notes: reqNotes });
       setReqSuccess(true);
-      setReqName(""); setReqUrl(""); setReqNotes("");
+      setReqName(""); setReqNotes("");
     } catch {}
   };
 
   const isBanned = me?.banned;
   const accessStatus = me?.access;
 
-  // Filter channels
   const filteredChannels = channels?.filter(c => 
     activeCategory === "all" ? true : c.categoryId === activeCategory
   ) || [];
 
-  // Determine remaining days for trial or paid
   const getRemainingText = () => {
     if (!me) return null;
     const now = new Date();
@@ -105,7 +104,7 @@ export default function Watch() {
   return (
     <div className="container py-8 space-y-8">
 
-      {/* ── Notification Popup for actioned requests ── */}
+      {/* Notification Popup */}
       <AnimatePresence>
         {notifOpen && unseenRequests && unseenRequests.length > 0 && (
           <motion.div
@@ -136,7 +135,7 @@ export default function Watch() {
         )}
       </AnimatePresence>
 
-      {/* ── Channel Request Dialog ── */}
+      {/* Channel Request Dialog */}
       <Dialog open={requestOpen} onOpenChange={(o) => { setRequestOpen(o); if (!o) setReqSuccess(false); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -163,14 +162,6 @@ export default function Watch() {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Stream URL (optional)</label>
-                <Input
-                  placeholder="https://example.com/stream/index.m3u8"
-                  value={reqUrl}
-                  onChange={(e) => setReqUrl(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
                 <label className="text-sm font-medium">Notes (optional)</label>
                 <Textarea
                   placeholder="Any extra details about the channel..."
@@ -189,6 +180,7 @@ export default function Watch() {
           )}
         </DialogContent>
       </Dialog>
+
       {/* Announcements */}
       {announcements && announcements.length > 0 && (
         <div className="space-y-2">
@@ -306,7 +298,6 @@ export default function Watch() {
                 ) : (
                   <Tv className="h-10 w-10 text-muted-foreground/50" />
                 )}
-                
                 <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                   <div className="bg-primary text-primary-foreground p-3 rounded-full translate-y-4 group-hover:translate-y-0 transition-transform">
                     <Play className="h-6 w-6 fill-current" />
@@ -334,3 +325,4 @@ export default function Watch() {
     </div>
   );
 }
+```
