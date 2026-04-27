@@ -1,8 +1,5 @@
-Here's the full `watch.tsx`:
-
-```tsx
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "wouter";
+import { useLocation } from "wouter";
 import { 
   useGetMe, 
   useListChannels, 
@@ -17,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { AlertTriangle, Clock, Calendar, Lock, Play, MessageSquare, Tv, PlusCircle, CheckCircle2, XCircle, Bell } from "lucide-react";
+import { Clock, Calendar, Lock, Play, MessageSquare, Tv, PlusCircle, CheckCircle2, XCircle, Bell } from "lucide-react";
 import { differenceInDays, parseISO, isAfter } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -325,4 +322,3 @@ export default function Watch() {
     </div>
   );
 }
-```
