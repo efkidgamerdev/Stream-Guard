@@ -1,21 +1,16 @@
-import Database, { type Database as DatabaseType } from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import path from "node:path";
-import fs from "node:fs";
+import { createClient } from "@libsql/client";
+import { drizzle } from "drizzle-orm/libsql";
 import * as schema from "./schema";
 
-const dbPath = process.env.DATABASE_PATH ?? path.resolve(process.cwd(), "data/channelzz.db");
-const dbDir = path.dirname(dbPath);
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
-}
+const url = process.env.TURSO_DATABASE_URL;
+const authToken = process.env.TURSO_AUTH_TOKEN;
 
-const sqlite = new Database(dbPath);
-sqlite.pragma("journal_mode = WAL");
-sqlite.pragma("foreign_keys = ON");
+if (!url) throw new Error("TURSO_DATABASE_URL environment variable is required");
 
-// Auto-create tables on startup. Idempotent.
-sqlite.exec(`
+const client = createClient({ url, authToken });
+
+// Auto-create tables on startup
+await client.executeMultiple(`
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     email TEXT NOT NULL UNIQUE,
@@ -73,28 +68,29 @@ sqlite.exec(`
   );
 `);
 
-// Seed default settings + starter categories on first boot
-const settingsCount = sqlite.prepare("SELECT COUNT(*) AS n FROM settings").get() as { n: number };
-if (settingsCount.n === 0) {
-  sqlite.prepare(
-    "INSERT INTO settings (id, pricing_text, whatsapp_number, trial_minutes) VALUES (1, ?, ?, 30)"
-  ).run(
-    "Monthly: MWK 5,000 — 30 days. Quarterly: MWK 13,000 — 90 days. Yearly: MWK 45,000 — 365 days. Contact via WhatsApp to upgrade.",
-    "265993702468",
-  );
+// Seed default settings on first boot
+const settingsRes = await client.execute("SELECT COUNT(*) AS n FROM settings");
+if ((settingsRes.rows[0].n as number) === 0) {
+  await client.execute({
+    sql: "INSERT INTO settings (id, pricing_text, whatsapp_number, trial_minutes) VALUES (1, ?, ?, 30)",
+    args: [
+      "Monthly: MWK 5,000 — 30 days. Quarterly: MWK 13,000 — 90 days. Yearly: MWK 45,000 — 365 days. Contact via WhatsApp to upgrade.",
+      "265993702468",
+    ],
+  });
 }
 
-const catCount = sqlite.prepare("SELECT COUNT(*) AS n FROM categories").get() as { n: number };
-if (catCount.n === 0) {
-  const insert = sqlite.prepare(
-    "INSERT INTO categories (id, name, slug, created_at) VALUES (?, ?, ?, ?)"
-  );
+// Seed starter categories on first boot
+const catRes = await client.execute("SELECT COUNT(*) AS n FROM categories");
+if ((catRes.rows[0].n as number) === 0) {
   const now = Date.now();
   for (const name of ["Sports", "News", "Movies", "Kids", "Music"]) {
-    insert.run(crypto.randomUUID(), name, name.toLowerCase(), now);
+    await client.execute({
+      sql: "INSERT INTO categories (id, name, slug, created_at) VALUES (?, ?, ?, ?)",
+      args: [crypto.randomUUID(), name, name.toLowerCase(), now],
+    });
   }
 }
 
-export const db = drizzle(sqlite, { schema });
-export const sqliteClient: DatabaseType = sqlite;
+export const db = drizzle(client, { schema });
 export * from "./schema";
