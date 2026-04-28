@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { 
   useGetMe, 
@@ -202,18 +202,31 @@ function ChannelsTab() {
   const { toast } = useToast();
   
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editChannel, setEditChannel] = useState<any | null>(null);
 
   const form = useForm<z.infer<typeof channelSchema>>({
     resolver: zodResolver(channelSchema),
-    defaultValues: {
-      name: "",
-      description: "",
-      categoryId: "",
-      logoUrl: "",
-      sourceUrl: "",
-      isLive: false,
-    },
+    defaultValues: { name: "", description: "", categoryId: "", logoUrl: "", sourceUrl: "", isLive: false },
   });
+
+  const editForm = useForm<z.infer<typeof channelSchema>>({
+    resolver: zodResolver(channelSchema),
+    defaultValues: { name: "", description: "", categoryId: "", logoUrl: "", sourceUrl: "", isLive: false },
+  });
+
+  // Populate edit form when a channel is selected
+  useEffect(() => {
+    if (editChannel) {
+      editForm.reset({
+        name: editChannel.name ?? "",
+        description: editChannel.description ?? "",
+        categoryId: editChannel.categoryId ?? "",
+        logoUrl: editChannel.logoUrl ?? "",
+        sourceUrl: editChannel.sourceUrl ?? "",
+        isLive: editChannel.isLive ?? false,
+      });
+    }
+  }, [editChannel]);
 
   const onSubmit = async (values: z.infer<typeof channelSchema>) => {
     try {
@@ -222,8 +235,20 @@ function ChannelsTab() {
       toast({ title: "Channel created successfully" });
       form.reset();
       setIsCreateOpen(false);
-    } catch (e) {
+    } catch {
       toast({ title: "Failed to create channel", variant: "destructive" });
+    }
+  };
+
+  const onEditSubmit = async (values: z.infer<typeof channelSchema>) => {
+    if (!editChannel) return;
+    try {
+      await updateChannel.mutateAsync({ id: editChannel.id, data: values });
+      queryClient.invalidateQueries({ queryKey: ["/api/channels"] });
+      toast({ title: "Channel updated" });
+      setEditChannel(null);
+    } catch {
+      toast({ title: "Failed to update channel", variant: "destructive" });
     }
   };
 
@@ -338,6 +363,68 @@ function ChannelsTab() {
         </Dialog>
       </CardHeader>
       <CardContent>
+        {/* ── Edit Dialog ── */}
+        <Dialog open={!!editChannel} onOpenChange={(o) => { if (!o) setEditChannel(null); }}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Edit Channel</DialogTitle>
+              <DialogDescription>Update channel details. Leave Stream URL blank to keep existing.</DialogDescription>
+            </DialogHeader>
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+                <FormField control={editForm.control} name="name" render={({ field }) => (
+                  <FormItem><FormLabel>Channel Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={editForm.control} name="categoryId" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl><SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger></FormControl>
+                      <SelectContent>{categories?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={editForm.control} name="logoUrl" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Logo URL</FormLabel>
+                    <FormControl>
+                      <div className="flex gap-2 items-center">
+                        {field.value && <img src={field.value} className="h-8 w-8 rounded object-contain bg-black/20 border border-border p-0.5 shrink-0" />}
+                        <Input placeholder="https://..." {...field} />
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={editForm.control} name="sourceUrl" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Stream URL (M3U8)</FormLabel>
+                    <FormControl><Input placeholder="Leave blank to keep existing" {...field} /></FormControl>
+                    <FormDescription>Never exposed to clients.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={editForm.control} name="description" render={({ field }) => (
+                  <FormItem><FormLabel>Description (Optional)</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={editForm.control} name="isLive" render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div><FormLabel className="text-base">Is Live</FormLabel><FormDescription>Show the LIVE badge</FormDescription></div>
+                    <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                  </FormItem>
+                )} />
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button type="button" variant="outline" onClick={() => setEditChannel(null)}>Cancel</Button>
+                  <Button type="submit" disabled={updateChannel.isPending}>
+                    {updateChannel.isPending ? "Saving…" : "Save Changes"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+
         <div className="overflow-x-auto"><Table>
           <TableHeader>
             <TableRow>
@@ -352,9 +439,15 @@ function ChannelsTab() {
             {channels?.map((channel) => (
               <TableRow key={channel.id}>
                 <TableCell>
-                  <img src={channel.logoUrl} alt={channel.name} className="h-8 w-8 object-contain rounded" />
+                  <div className="h-10 w-10 rounded-lg bg-black/20 border border-border/50 flex items-center justify-center overflow-hidden">
+                    {channel.logoUrl
+                      ? <img src={channel.logoUrl} alt={channel.name} className="h-full w-full object-contain p-1" />
+                      : <Tv className="h-5 w-5 text-muted-foreground" />}
+                  </div>
                 </TableCell>
-                <TableCell className="font-medium">{channel.name}</TableCell>
+                <TableCell className="font-medium max-w-[180px]">
+                  <span className="line-clamp-2 leading-tight">{channel.name}</span>
+                </TableCell>
                 <TableCell>{channel.categoryName}</TableCell>
                 <TableCell>
                   {channel.isLive ? (
@@ -364,19 +457,22 @@ function ChannelsTab() {
                   )}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={async () => {
-                      if (confirm("Delete this channel?")) {
-                        await deleteChannel.mutateAsync({ id: channel.id });
-                        queryClient.invalidateQueries({ queryKey: ["/api/channels"] });
-                        toast({ title: "Channel deleted" });
-                      }
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  <div className="flex justify-end gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => setEditChannel(channel)}>
+                      <Edit className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                    <Button variant="ghost" size="icon"
+                      onClick={async () => {
+                        if (confirm("Delete this channel?")) {
+                          await deleteChannel.mutateAsync({ id: channel.id });
+                          queryClient.invalidateQueries({ queryKey: ["/api/channels"] });
+                          toast({ title: "Channel deleted" });
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
